@@ -1,0 +1,75 @@
+{
+  "nodes": [
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6"
+  ],
+  "links": [
+    {
+      "u": "Q1",
+      "v": "Q2",
+      "delay_ms": 8,
+      "success_prob": 0.96,
+      "capacity": 2
+    },
+    {
+      "u": "Q1",
+      "v": "Q3",
+      "delay_ms": 5,
+      "success_prob": 0.82,
+      "capacity": 3
+    },
+    {
+      "u": "Q2",
+      "v": "Q3",
+      "delay_ms": 4,
+      "success_prob": 0.88,
+      "capacity": 2
+    },
+    {
+      "u": "Q2",
+      "v": "Q4",
+      "delay_ms": 7,
+      "success_prob": 0.93,
+      "capacity": 2
+    },
+    {
+      "u": "Q3",
+      "v": "Q4",
+      "delay_ms": 5,
+      "success_prob": 0.86,
+      "capacity": 2
+    },
+    {
+      "u": "Q3",
+      "v": "Q5",
+      "delay_ms": 9,
+      "success_prob": 0.91,
+      "capacity": 2
+    },
+    {
+      "u": "Q4",
+      "v": "Q5",
+      "delay_ms": 4,
+      "success_prob": 0.95,
+      "capacity": 2
+    },
+    {
+      "u": "Q4",
+      "v": "Q6",
+      "delay_ms": 8,
+      "success_prob": 0.9,
+      "capacity": 2
+    },
+    {
+      "u": "Q5",
+      "v": "Q6",
+      "delay_ms": 6,
+      "success_prob": 0.94,
+      "capacity": 2
+    }
+  ]
+}
