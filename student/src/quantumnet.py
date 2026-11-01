@@ -55,7 +55,11 @@ class RequestResult:
 # ============================================================
 # TASK 1 — Build and validate the network topology [10 points]
 # ============================================================
-
+    # TODO 1:
+    # - Read the JSON file.
+    # - Add all nodes.
+    # - Add all links with delay_ms, success_prob, and capacity.
+    # - Validate the link values and graph connectivity.
 def load_topology(path: str | Path) -> nx.Graph:
     """
     Read data/topology.json and return an undirected NetworkX graph.
@@ -65,14 +69,44 @@ def load_topology(path: str | Path) -> nx.Graph:
       2. capacity >= 1
       3. the graph is connected
     """
-    # TODO 1:
-    # - Read the JSON file.
-    # - Add all nodes.
-    # - Add all links with delay_ms, success_prob, and capacity.
-    # - Validate the link values and graph connectivity.
-    raise NotImplementedError("Complete Task 1")
+    #Opens given Json file and stores provided data to be used later in program
+    with open(filepath, 'r') as f:
+        data = json.load(f)
+    G = nx.Graph()
 
+    #pulls from data to assign nodes their respective id
+    for node in data.get("nodes", []):
+        if isinstance(node, dict):
+            node_id = node.get("id")
+            node_attribute = {k: v for k, v in node.items() if k != "id"}
+            G.add_node(node_id, **node_attribute)
+        else: 
+            G.add_node(node)
+    
+    #establishes links routes (to which node they ride) and their respective values (delay, success rate, and capacity)
+    #s = source, t = target
+    links = data.get("links", [])
+    for link in links:
+        s = link.get("u")
+        t = link.get("v")
+        
+        success_prob = link.get("success_prob")
+        capacity = link.get("capacity")
+        
+    #simple parameter establishment for success and capacity to validate link values
+        if success_prob is not None and not (0 < success_prob <= 1):
+            raise ValueError(f"error: edge ({s}, {t}) has success_prob={success_prob}. Must be 0 < success_prob <=1.")
+        if capacity is not None and capacity < 1:
+            raise ValueError(f"error: edge ({s}, {t}) as capacity={capacity}. Capacity must be >= 1.")
+        #this is what assigns the delay_ms for the links
+        attributes = {k: val for k, val in link.items() if k not in ("u", "v")}
+        G.add_edge(s, t, **attributes)
 
+    if len(G) > 0 and not nx.is.connected(G):
+        raise ValueError("validation error: The loaded graph is not connected.")
+    return G
+
+#Provided code that doesn't need to be touched
 def draw_topology(g: nx.Graph, output_path: str | Path) -> None:
     """Provided visualization helper. You may improve the layout if desired."""
     pos = {
