@@ -167,13 +167,6 @@ def generate_requests(
 # ============================================================
 # TASK 3 — Implement routing policies [30 points]
 # ============================================================
-
-def edge_weight(
-    policy: str,
-    attrs: dict,
-    alpha: float = 1.0,
-    beta: float = 15.0,
-) -> float:
     """
     Required policies:
 
@@ -191,31 +184,44 @@ def edge_weight(
         Your own policy using at least TWO link properties.
         Explain the formula and parameters in your report.
     """
+def edge_weight(
+    policy: str,
+    attrs: dict,
+    alpha: float = 1.0,
+    beta: float = 15.0,
+) -> float:
     delay = attrs["delay_ms"]
     p = attrs["success_prob"]
     capacity = attrs["capacity"]
 
     if policy == "shortest_hop":
         # TODO 3A
-        raise NotImplementedError("Complete Task 3A")
+        return 1.0
 
     if policy == "min_latency":
         # TODO 3B
-        raise NotImplementedError("Complete Task 3B")
+        return float(attrs["delay_ms"])
 
     if policy == "max_reliability":
-        # TODO 3C
-        # Hint: logarithms convert products into sums.
-        raise NotImplementedError("Complete Task 3C")
+    #look over to double check
+    # TODO 3C
+        p = attrs["success_prob"]
+        p = max(p, 1e-9)
+        return -math.log(p)
 
     if policy == "student_policy":
         # TODO 3D
-        # Use at least TWO of: delay, p, capacity.
-        raise NotImplementedError("Complete Task 3D")
+        delay = attrs["delay_ms"]
+        p = attrs["success_prob"]
+        capacity = attrs["capacity"]
 
+        effective_cost = (delay * alpha) / (p * max(capacity, 1))
+        return float(effective_cost)
+        # Use at least TWO of: delay, p, capacity.
+    
     raise ValueError(f"Unknown policy: {policy}")
 
-
+    """Select a path using Dijkstra's algorithm and edge_weight(...)."""
 def choose_path(
     g: nx.Graph,
     src: str,
@@ -224,9 +230,13 @@ def choose_path(
     alpha: float = 1.0,
     beta: float = 15.0,
 ) -> List[str]:
-    """Select a path using Dijkstra's algorithm and edge_weight(...)."""
     # TODO 3E
-    raise NotImplementedError("Complete Task 3E")
+    return nx.shortest_path(
+        g,
+        source=src
+        target=dst
+        weight=lambda u, v, data: edge_weight(policy, data, alpha, beta)
+    )
 
 
 # ============================================================
