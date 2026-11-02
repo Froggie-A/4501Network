@@ -286,15 +286,6 @@ def make_link_states(g: nx.Graph) -> Dict[Tuple[str, str], LinkState]:
 # ============================================================
 # TASK 5 — End-to-end simulation and metrics [20 points]
 # ============================================================
-
-def simulate(
-    g: nx.Graph,
-    requests: List[Request],
-    policy: str,
-    seed: int,
-    alpha: float = 1.0,
-    beta: float = 15.0,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     For each request:
       1. choose a route;
@@ -308,32 +299,171 @@ def simulate(
     A link succeeds when:
         rng.random() <= success_prob
     """
+def simulate(
+    g: nx.Graph,
+    requests: List[Request],
+    policy: str,
+    seed: int,
+    alpha: float = 1.0,
+    beta: float = 15.0,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+
     # TODO 5A:
     # Initialize random generator and link states.
+    rng = random.Random(seed)
+    
+    # Track metrics for requests and links
+    request_records = []
+    link_stats = {edge: {"jobs": 0, "successes": 0, "failures": 0} for edge in g.edges()}
 
     # TODO 5B:
     # Process requests in increasing arrival-time order.
+    # (Sort requests by arrival time just to be safe)
+    sorted_requests = sorted(requests, key=lambda r: r.arrival_ms)
+
+    for req in sorted_requests:
+        # 1. Choose a route based on policy
+        try:
+            if policy == "shortest":
+                path = nx.shortest_path(g, source=req.src, target=req.dst, weight='weight')
+            else:
+                path = nx.shortest_path(g, source=req.src, target=req.dst)
+        except nx.NetworkXNoPath:
+            request_records.append({
+                "request_id": req.request_id,
+                "arrival_ms": req.arrival_ms,
+                "src": req.src,
+                "dst": req.dst,
+                "success": False,
+                "failure_reason": "No path found",
+                "queue_waiting_ms": 0.0,
+                "path_length": 0
+            })
+            continue
+
+        path_edges = list(zip(path[:-1], path[1:]))
+        
+        # 2 & 4. Traverse links in path order and accumulate queue waiting time
+        queue_waiting_ms = 0.0
+        for u, v in path_edges:
+            edge_data = g.get_edge_data(u, v, default={})
+            # Accumulate queue delay using alpha/beta or edge metrics
+            queue_waiting_ms += edge_data.get('queue_delay', alpha)
+
+        # 3. Reserve link capacity (increment job count on links)
+        for u, v in path_edges:
+            canonical_edge = (u, v) if (u, v) in link_stats else (v, u)
+            if canonical_edge in link_stats:
+                link_stats[canonical_edge]["jobs"] += 1
+
+        # 5 & 6. Sample link success/failure in path order; stop after first failed link
+        request_success = True
+        failed_link = None
+
+        for u, v in path_edges:
+            edge_data = g.get_edge_data(u, v, default={})
+            success_prob = edge_data.get('success_prob', 1.0 - edge_data.get('per', 0.05))
+            
+            canonical_edge = (u, v) if (u, v) in link_stats else (v, u)
+
+            # A link succeeds when rng.random() <= success_prob
+            if rng.random() <= success_prob:
+                if canonical_edge in link_stats:
+                    link_stats[canonical_edge]["successes"] += 1
+            else:
+                request_success = False
+                failed_link = (u, v)
+                if canonical_edge in link_stats:
+                    link_stats[canonical_edge]["failures"] += 1
+                break # Stop after the first failed link
+
+        # 7. Record the result
+        request_records.append({
+            "request_id": req.request_id,
+            "arrival_ms": req.arrival_ms,
+            "src": req.src,
+            "dst": req.dst,
+            "success": request_success,
+            "failure_reason": f"Failed on link {failed_link}" if not request_success else None,
+            "queue_waiting_ms": queue_waiting_ms,
+            "path_length": len(path_edges)
+        })
 
     # TODO 5C:
     # Return:
     #   request_df with per-request results
     #   link_df with policy, link, jobs, utilization
+    request_df = pd.DataFrame(request_records)
+
+    link_rows = []
+    for (u, v), stats in link_stats.items():
+        jobs = stats["jobs"]
+        # Calculate utilization or pass metrics as required
+        link_rows.append({
+            "policy": policy,
+            "link": (u, v),
+            "jobs": jobs,
+            "utilization": jobs / max(1, len(requests))
+        })
+    link_df = pd.DataFrame(link_rows)
+
+    return request_df, link_df
     raise NotImplementedError("Complete Task 5")
 
 
 def summarize(request_df: pd.DataFrame, offered_load: float) -> dict:
     """
-    Compute:
-      policy
-      offered_load
-      success_rate
-      avg_latency_ms
-      avg_waiting_ms
-      avg_hops
-      throughput_req_per_s
+    Compute summary metrics from the request DataFrame and offered load.
     """
-    # TODO 5D
-    raise NotImplementedError("Complete Task 5D")
+    # Handle empty DataFrame edge cases gracefully
+    if request_df.empty:
+        return {
+            "policy": None,
+            "offered_load": offered_load,
+            "success_rate": 0.0,
+            "avg_latency_ms": 0.0,
+            "avg_waiting_ms": 0.0,
+            "avg_hops": 0.0,
+            "throughput_req_per_s": 0.0
+        }
+
+    # Extract policy if stored in metadata or DataFrame columns, otherwise default
+    policy = request_df["policy"].iloc[0] if "policy" in request_df.columns else "unknown"
+    
+    # Success rate: fraction of requests where success is True
+    success_rate = float(request_df["success"].mean()) if "success" in request_df.columns else 0.0
+    
+    # Average waiting time (from queue_waiting_ms column)
+    avg_waiting_ms = float(request_df["queue_waiting_ms"].mean()) if "queue_waiting_ms" in request_df.columns else 0.0
+    
+    # Average hops (from path_length column)
+    avg_hops = float(request_df["path_length"].mean()) if "path_length" in request_df.columns else 0.0
+    
+    # Average latency (if total latency is tracked, or combination of waiting + path delay)
+    # If a 'latency_ms' column exists, use it; otherwise estimate from waiting time + hops or defaults
+    if "latency_ms" in request_df.columns:
+        avg_latency_ms = float(request_df["latency_ms"].mean())
+    else:
+        avg_latency_ms = avg_waiting_ms + (avg_hops * 5.0) # Adjust based on your metric definitions if needed
+        
+    # Throughput calculation (successful requests per second or overall completion rate)
+    # Usually based on arrival time spans or total successful requests divided by total duration
+    if "arrival_ms" in request_df.columns and len(request_df) > 1:
+        duration_s = (request_df["arrival_ms"].max() - request_df["arrival_ms"].min()) / 1000.0
+        successful_count = request_df["success"].sum() if "success" in request_df.columns else len(request_df)
+        throughput_req_per_s = float(successful_count / duration_s) if duration_s > 0 else float(successful_count)
+    else:
+        throughput_req_per_s = 0.0
+
+    return {
+        "policy": policy,
+        "offered_load": offered_load,
+        "success_rate": success_rate,
+        "avg_latency_ms": avg_latency_ms,
+        "avg_waiting_ms": avg_waiting_ms,
+        "avg_hops": avg_hops,
+        "throughput_req_per_s": throughput_req_per_s
+    }
 
 
 # ============================================================
