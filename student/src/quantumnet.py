@@ -102,7 +102,7 @@ def load_topology(path: str | Path) -> nx.Graph:
         attributes = {k: val for k, val in link.items() if k not in ("u", "v")}
         G.add_edge(s, t, **attributes)
 
-    if len(G) > 0 and not nx.is.connected(G):
+    if len(G) > 0 and not nx.Graph.connected(G):
         raise ValueError("validation error: The loaded graph is not connected.")
     return G
 
