@@ -148,7 +148,12 @@ def generate_requests(
     n_requests: int,
     arrival_rate_per_ms: float,
     rng: random.Random,
+    request_id,
+    arrival_ms,
+    src,
+    dst,
 ) -> List[Request]:
+    
     """
     Generate requests using exponentially distributed inter-arrival times.
 
@@ -160,6 +165,25 @@ def generate_requests(
 
     Source and destination must be different.
     """
+    nodes = list(g.nodes)
+    requests = []
+    current_time_ms = 0.0
+
+    for request_id in range(n_requests):
+        current_time_ms += rng.expovariate(arrival_rate_per_ms)
+        src, dst = rng.sample(nodes, 2)
+
+        requests.append(
+            Request(
+                request_id=request_id,
+                arrival_ms=current_time_ms,
+                src=src,
+                dst=dst,
+            )
+        )
+
+    return requests
+
     # TODO 2
     raise NotImplementedError("Complete Task 2")
 
@@ -256,7 +280,7 @@ class LinkState:
 
         # TODO 4A:
         # Create a min-heap with one 0.0 value per capacity slot.
-        self.available_times = []
+        self.available_times = [] * capacity
 
         self.busy_time = 0.0
         self.jobs = 0
@@ -270,6 +294,17 @@ class LinkState:
         """
         # TODO 4B:
         # Update the slot heap, busy_time, and jobs.
+        earliest_slot_free_time = heapq.heappop(self.available_times)
+
+        start_time = max(ready_ms, earliest_slot_free_time)
+        finish_time = start_time + service_ms
+
+        heapq.heappush(self.available_times, finish_time)
+
+        self.busy_time += service_ms
+        self.jobs += 1
+
+        return start_time, finish_time
         raise NotImplementedError("Complete Task 4B")
 
 
@@ -280,6 +315,10 @@ def canonical_edge(u: str, v: str) -> Tuple[str, str]:
 def make_link_states(g: nx.Graph) -> Dict[Tuple[str, str], LinkState]:
     """Create one LinkState object for each network link."""
     # TODO 4C
+    return {
+        canonical_edge(u, v): LinkState(data["capacity"])
+        for u, v, data in g.edges(data=True)
+    }
     raise NotImplementedError("Complete Task 4C")
 
 
