@@ -255,10 +255,10 @@ def choose_path(
     beta: float = 15.0,
 ) -> List[str]:
     # TODO 3E
-    return nx.shortest_path(
+    return nx.shortest_path (
         g,
-        source=src
-        target=dst
+        source=src,
+        target=dst,
         weight=lambda u, v, data: edge_weight(policy, data, alpha, beta)
     )
 
@@ -325,7 +325,7 @@ def make_link_states(g: nx.Graph) -> Dict[Tuple[str, str], LinkState]:
 # ============================================================
 # TASK 5 — End-to-end simulation and metrics [20 points]
 # ============================================================
- def simulate(
+def simulate(
     g: nx.Graph,
     requests: List[Request],
     policy: str,
