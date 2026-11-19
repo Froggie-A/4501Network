@@ -84,23 +84,22 @@ def load_topology(path: str | Path) -> nx.Graph:
             G.add_node(node)
     
     #establishes links routes (to which node they ride) and their respective values (delay, success rate, and capacity)
-    #s = source, t = target
-    links = data.get("links", [])
-    for link in links:
-        s = link.get("u")
-        t = link.get("v")
+    #u = source, v = target
+    for link in data.get("links", []):
+        u = link.get("u")
+        v = link.get("v")
         
         success_prob = link.get("success_prob")
         capacity = link.get("capacity")
         
     #simple parameter establishment for success and capacity to validate link values
-        if success_prob is not None and not (0 < success_prob <= 1):
-            raise ValueError(f"error: edge ({s}, {t}) has success_prob={success_prob}. Must be 0 < success_prob <=1.")
-        if capacity is not None and capacity < 1:
-            raise ValueError(f"error: edge ({s}, {t}) as capacity={capacity}. Capacity must be >= 1.")
+        if success_prob is not None or not (0 < success_prob <= 1):
+            raise ValueError(f"error: edge ({u}, {v}) has success_prob={success_prob}. Must be 0 < success_prob <=1.")
+        if capacity is None or capacity < 1:
+            raise ValueError(f"error: edge ({u}, {v}) as capacity={capacity}. Capacity must be >= 1.")
         #this is what assigns the delay_ms for the links
         attributes = {k: val for k, val in link.items() if k not in ("u", "v")}
-        G.add_edge(s, t, **attributes)
+        G.add_edge(u, v, **attributes)
 
     if len(G) > 0 and not nx.Graph.connected(G):
         raise ValueError("validation error: The loaded graph is not connected.")
@@ -325,14 +324,6 @@ def make_link_states(g: nx.Graph) -> Dict[Tuple[str, str], LinkState]:
 # ============================================================
 # TASK 5 — End-to-end simulation and metrics [20 points]
 # ============================================================
-def simulate(
-    g: nx.Graph,
-    requests: List[Request],
-    policy: str,
-    seed: int,
-    alpha: float = 1.0,
-    beta: float = 15.0,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     For each request:
       1. choose a route;
@@ -346,12 +337,44 @@ def simulate(
     A link succeeds when:
         rng.random() <= success_prob
     """
+def simulate(
+    g: nx.Graph,
+    requests: List[Request],
+    policy: str,
+    seed: int,
+    alpha: float = 1.0,
+    beta: float = 15.0,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+
     # TODO 5A:
     # Initialize random generator and link states.
+    num = random.Random(seed) #random number for future task in task 5
+    link_states = make_link_states(g) #pulls linked states from task 2
+    record = [] #the record for Task 5 requirements
 
     # TODO 5B:
-    # Process requests in increasing arrival-time order.
+    #Uses task 2's generated requests and organizes based on the arrival_ms
+    for request in sorted(requests, key=lambda r: r.arrival_ms):
+        path = choose_path(g, request.src, request.dst, policy, alpha, beta)
+    #tracks time
+    t = request.arrival_ms
+    waiting_ms = 0.0
+    success = True
 
+    for u, v in zip(path, path[1:]):
+        attrs = g[u][v]
+        link = link_states[cononical_edge(u, v)]
+
+        start, finish = link.reserve(t, attrs["delay_ms"])
+        waiting_ms += start - time
+        time = finish
+    
+    #link success-failure 
+    if not (num.random() <= attrs["success_prob"])
+        success = False
+        break
+
+    record.append(asdict(RequestResult()
     # TODO 5C:
     # Return:
     #   request_df with per-request results
