@@ -324,6 +324,15 @@ def make_link_states(g: nx.Graph) -> Dict[Tuple[str, str], LinkState]:
 # ============================================================
 # TASK 5 — End-to-end simulation and metrics [20 points]
 # ============================================================
+
+def simulate(
+    g: nx.Graph,
+    requests: List[Request],
+    policy: str,
+    seed: int,
+    alpha: float = 1.0,
+    beta: float = 15.0,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     For each request:
       1. choose a route;
@@ -337,19 +346,10 @@ def make_link_states(g: nx.Graph) -> Dict[Tuple[str, str], LinkState]:
     A link succeeds when:
         rng.random() <= success_prob
     """
-def simulate(
-    g: nx.Graph,
-    requests: List[Request],
-    policy: str,
-    seed: int,
-    alpha: float = 1.0,
-    beta: float = 15.0,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-
     # TODO 5A:
     # Initialize random generator and link states.
     num = random.Random(seed) #random number for future task in task 5
-    link_states = make_link_states(g) #pulls linked states from task 2
+    link_states = make_link_states(g) #pulls linked states from task 4
     record = [] #the record for Task 5 requirements
 
     # TODO 5B:
@@ -357,30 +357,43 @@ def simulate(
     for request in sorted(requests, key=lambda r: r.arrival_ms):
         path = choose_path(g, request.src, request.dst, policy, alpha, beta)
     #tracks time
-    t = request.arrival_ms
-    waiting_ms = 0.0
-    success = True
+        t = request.arrival_ms
+        waiting_ms = 0.0
+        success = True
 
-    for u, v in zip(path, path[1:]):
-        attrs = g[u][v]
-        link = link_states[cononical_edge(u, v)]
+        for u, v in zip(path, path[1:]):
+            attrs = g[u][v]
+            link = link_states[cononical_edge(u, v)]
 
-        start, finish = link.reserve(t, attrs["delay_ms"])
-        waiting_ms += start - time
-        time = finish
+            start, finish = link.reserve(t, attrs["delay_ms"])
+            waiting_ms += start - t
+            t = finish
     
     #link success-failure 
-    if not (num.random() <= attrs["success_prob"])
-        success = False
-        break
+            if not (num.random() <= attrs["success_prob"]):
+                success = False
+                break
 
-    record.append(asdict(RequestResult()
+        record.append(asdict(RequestResult(
+            request_id = request.request_id, policy = policy, src = request.src, dst = request.dst,
+            arrival_ms = request.arrival_ms, finish_ms = t, latency_ms = t - request.arrival_ms, waiting_ms = waiting_ms,
+            hop_count = len(path) - 1, success = success, path = "->".join(path) )))
     # TODO 5C:
     # Return:
     #   request_df with per-request results
     #   link_df with policy, link, jobs, utilization
-    raise NotImplementedError("Complete Task 5")
+    
+    request_df = pd.DataFrame(record)
+    horizon_ms = request_df["finish_ms"].max() if not request_df.empty else 0.0
+    link_rows = []
+    for (u, v), state in link_states.items():
+        denom = state.capacity * horizon_ms
+        link_rows.append({ "policy": policy, "link": f"{u}-{v}", "jobs": state.jobs,
+                          "utilization": state.busy_time / denom if denom > 0 else 0.0, })
+    link_df = pd.DataFrame(link_rows)
+    return request_df, link_df
 
+# TODO 5D
 
 def summarize(request_df: pd.DataFrame, offered_load: float) -> dict:
     """
@@ -393,8 +406,17 @@ def summarize(request_df: pd.DataFrame, offered_load: float) -> dict:
       avg_hops
       throughput_req_per_s
     """
-    # TODO 5D
-    raise NotImplementedError("Complete Task 5D")
+    ok = request_df[request_df["success"]]
+    horizon_s = request_df["finish_ms"].max() / 1000
+    
+    return {
+       "policy": request_df["policy"].iloc[0], "offered_load": offered_load, "success_rate": request_df["success"].mean(),
+        "avg_latency_ms": ok["latency_ms"].mean() if len(ok) else float("nan"), "avg_waiting_ms": request_df["waiting_ms"].mean(),
+        "avg_hops": request_df["hop_count"].mean(), "throughput_req_per_s": len(ok) / horizon_s if horizon_s > 0 else 0.0, 
+    }
+
+
+
 # ============================================================
 # TASK 6 — Experimental evaluation and report [15 points]
 # ============================================================
