@@ -70,7 +70,7 @@ def load_topology(path: str | Path) -> nx.Graph:
       3. the graph is connected
     """
     #Opens given Json file and stores provided data to be used later in program
-    with open(filepath, 'r') as f:
+    with open(path, 'r') as f:
         data = json.load(f)
     G = nx.Graph()
 
@@ -148,7 +148,6 @@ def generate_requests(
     arrival_rate_per_ms: float,
     rng: random.Random,
     request_id,
-    arrival_ms,
     src,
     dst,
 ) -> List[Request]:
@@ -164,6 +163,7 @@ def generate_requests(
 
     Source and destination must be different.
     """
+    # TODO 2
     nodes = list(g.nodes)
     requests = []
     current_time_ms = 0.0
@@ -183,7 +183,7 @@ def generate_requests(
 
     return requests
 
-    # TODO 2
+    
     raise NotImplementedError("Complete Task 2")
 
 
@@ -279,7 +279,7 @@ class LinkState:
 
         # TODO 4A:
         # Create a min-heap with one 0.0 value per capacity slot.
-        self.available_times = [] * capacity
+        self.available_times = [0.0] * capacity
 
         self.busy_time = 0.0
         self.jobs = 0
@@ -363,7 +363,7 @@ def simulate(
 
         for u, v in zip(path, path[1:]):
             attrs = g[u][v]
-            link = link_states[cononical_edge(u, v)]
+            link = link_states[canonical_edge(u, v)]
 
             start, finish = link.reserve(t, attrs["delay_ms"])
             waiting_ms += start - t
@@ -446,6 +446,36 @@ def run_experiments(
     # - Run all four policies on the same trace.
     # - Save per-request and per-link CSV files.
     # - Save and return summary.csv.
+
+    policies = ["shortest_hop", "min_latency", "max_reliability", "student_policy"]
+    loads = [0.02, 0.05, 0.10, 0.15]
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    summaries = []
+    all_requests = []
+    all_links = []
+
+    for load_index, load in enumerate(loads):
+        trace_rng = random.Random(seed + load_index)
+        trace = generate_requests(g, n_requests, load, trace_rng)
+
+        for policy in policies:
+            request_df, link_df = simulate(g, trace, policy, seed=seed + 1000 + load_index)
+            request_df["offered_load"] = load
+            link_df["offered_load"] = load
+
+            all_requests.append(request_df)
+            all_links.append(link_df)
+            summaries.append(summarize(request_df, load))
+
+    pd.concat(all_requests, ignore_index=True).to_csv(output_dir / "requests.csv", index=False)
+    pd.concat(all_links, ignore_index=True).to_csv(output_dir / "links.csv", index=False)
+    summary_df = pd.DataFrame(summaries)
+    summary_df.to_csv(output_dir / "summary.csv", index=False)
+
+    return summary_df
     raise NotImplementedError("Complete Task 6A")
 
 
@@ -495,6 +525,18 @@ def make_plots(summary_df: pd.DataFrame, output_dir: Path) -> None:
     """
     # TODO 6B:
     # Call plot_metric(...) for all four required metrics.
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    plot_metric(summary_df, "success_rate", "Request Success Rate",
+                output_dir / "success_rate_vs_load.png")
+    plot_metric(summary_df, "avg_latency_ms", "Average End-to-End Latency (ms)",
+                output_dir / "latency_vs_load.png")
+    plot_metric(summary_df, "throughput_req_per_s", "Throughput (successful requests/s)",
+                output_dir / "throughput_vs_load.png")
+    plot_metric(summary_df, "avg_waiting_ms", "Average Queue Waiting Time (ms)",
+                output_dir / "waiting_vs_load.png")
+    
     raise NotImplementedError("Complete Task 6B")
 
 
