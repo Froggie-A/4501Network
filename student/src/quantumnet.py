@@ -93,7 +93,7 @@ def load_topology(path: str | Path) -> nx.Graph:
         capacity = link.get("capacity")
         
     #simple parameter establishment for success and capacity to validate link values
-        if success_prob is not None or not (0 < success_prob <= 1):
+        if success_prob is None or not (0 < success_prob <= 1):
             raise ValueError(f"error: edge ({u}, {v}) has success_prob={success_prob}. Must be 0 < success_prob <=1.")
         if capacity is None or capacity < 1:
             raise ValueError(f"error: edge ({u}, {v}) as capacity={capacity}. Capacity must be >= 1.")
@@ -101,7 +101,7 @@ def load_topology(path: str | Path) -> nx.Graph:
         attributes = {k: val for k, val in link.items() if k not in ("u", "v")}
         G.add_edge(u, v, **attributes)
 
-    if len(G) > 0 and not nx.Graph.connected(G):
+    if len(G) > 0 and not nx.is_connected(G):
         raise ValueError("validation error: The loaded graph is not connected.")
     return G
 
