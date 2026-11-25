@@ -147,9 +147,6 @@ def generate_requests(
     n_requests: int,
     arrival_rate_per_ms: float,
     rng: random.Random,
-    request_id,
-    src,
-    dst,
 ) -> List[Request]:
     
     """
@@ -228,16 +225,11 @@ def edge_weight(
     if policy == "max_reliability":
     #look over to double check
     # TODO 3C
-        p = attrs["success_prob"]
         p = max(p, 1e-9)
         return -math.log(p)
 
     if policy == "student_policy":
         # TODO 3D
-        delay = attrs["delay_ms"]
-        p = attrs["success_prob"]
-        capacity = attrs["capacity"]
-
         effective_cost = (delay * alpha) + (beta / max(capacity, 1))
         return float(effective_cost)
         # Use at least TWO of: delay, p, capacity.
