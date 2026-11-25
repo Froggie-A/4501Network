@@ -531,7 +531,7 @@ def make_plots(summary_df: pd.DataFrame, output_dir: Path) -> None:
     plot_metric(summary_df, "avg_waiting_ms", "Average Queue Waiting Time (ms)",
                 output_dir / "waiting_vs_load.png")
     
-    raise NotImplementedError("Complete Task 6B")
+    #raise NotImplementedError("Complete Task 6B")
 
 
 def main() -> None:
