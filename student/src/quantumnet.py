@@ -238,9 +238,11 @@ def edge_weight(
         p = attrs["success_prob"]
         capacity = attrs["capacity"]
 
-        effective_cost = (delay * alpha) / (p * max(capacity, 1))
+        effective_cost = (delay * alpha) + (beta / max(capacity, 1))
         return float(effective_cost)
         # Use at least TWO of: delay, p, capacity.
+        # policy is based around delay and capacity with a emphasize on capacity over delay. 
+        # useful when handling traffic
     
     raise ValueError(f"Unknown policy: {policy}")
 
